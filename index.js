@@ -75,13 +75,17 @@ async function runBuild(image, argv) {
     reject = _reject;
   });
 
+  const inputDir = path.resolve('.');
+  const builderDir = path.dirname(require.resolve('./guest.js'));
+
   const dopts = {
     //entrypoint: 'npx',
     //argv: ['--no-install', 'prebuildify', ...argv],
     entrypoint: 'node',
-    argv: ['/input/guest.js'],
+    argv: ['/builder/guest.js'],
     volumes: {
-      [path.resolve('.')]: '/input',
+      [inputDir]: '/input',
+      [builderDir]: '/builder',
     },
     cwd: '/input',
   }
