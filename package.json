@@ -1,0 +1,17 @@
+{
+  "name": "hack-stash-build-linux",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@vweevers/docker-pull": "^1.1.1",
+    "docker-run": "^3.1.0",
+    "log-update": "^4.0.0"
+  }
+}
