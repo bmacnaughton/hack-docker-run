@@ -73,7 +73,8 @@ async function runBuild() {
 
   child.stderr.pipe(process.stderr, { end: false });
 
-  // getscript .pipe(child.stdin)
+  const stream = fs.createReadStream(path.resolve('./guest.js'), 'utf8');
+  stream.pipe(child.stdin);
 
   child.stdout.pipe(process.stdout);
   child.stdout.on('finish', () => {resolve('finish')});
