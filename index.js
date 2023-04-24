@@ -8,22 +8,37 @@ const fs = require('fs');
 const dockerPull = require('@vweevers/docker-pull');
 const dockerRun = require('docker-run');
 const logger = require('log-update');
-const log = logger.create(process.stderr, { showCursor: true })
 
-const image = 'ghcr.io/prebuild/centos7-devtoolset7:2';
+const log = logger.create(process.stderr, { showCursor: true });
 
-getImage()
-  .then(r => {
-    console.log('got image');
-  })
+
+
+
+async function main() {
+  console.log('got', process.argv);
+  // remove node and this script from argv
+  const [images, argv] = getImagesAndRemoveFromArgv(process.argv.slice(2));
+  console.log('executing images', images);
+  console.log('args:', argv);
+
+  while (images.length) {
+    const image = images.shift();
+    console.log('executing image:', image)
+    await getImage(image);
+
+    await runBuild(image, argv);
+  }
+}
+
+main()
   .then(() => {
-    return runBuild();
+    console.log('done');
   })
   .catch(e => {
-    console.log('ERROR:', e);
-  })
+    console.log('ERROR:', e)
+  });
 
-async function getImage() {
+async function getImage(image) {
   let opts = {};
 
   let resolve;
@@ -52,7 +67,7 @@ async function getImage() {
   }
 }
 
-async function runBuild() {
+async function runBuild(image, argv) {
   let resolve;
   let reject;
   const p = new Promise((_resolve, _reject) => {
@@ -60,29 +75,39 @@ async function runBuild() {
     reject = _reject;
   });
 
-  const useStream = 'USE_STREAM' in process.env;
-  const streamOrFile = useStream ? '-' : '/input/guest.js';
+  const dopts = {
+    //entrypoint: 'npx',
+    //argv: ['--no-install', 'prebuildify', ...argv],
+    entrypoint: 'node',
+    argv: ['/input/guest.js'],
+    volumes: {
+      [path.resolve('.')]: '/input',
+    },
+    cwd: '/input',
+  }
+  console.log('target:', dopts);
 
-  const child = dockerRun(image, {
-      entrypoint: 'node',
-      argv: [streamOrFile].concat(['--stuff', '--for', '--func']),
-      volumes: {
-        [path.resolve('.')]: '/input',
-      },
-  });
+  const child = dockerRun(image, dopts);
 
   child.on('error', reject);
   child.on('exit', () => {resolve('exit')});
 
   child.stderr.pipe(process.stderr, { end: false });
 
-  if (useStream) {
-    const stream = fs.createReadStream(path.resolve('./guest.js'), 'utf8');
-    stream.pipe(child.stdin);
-  }
-
-
   child.stdout.pipe(process.stdout);
   child.stdout.on('finish', () => {resolve('finish')});
   child.stdout.on('error', reject);
+}
+
+
+function getImagesAndRemoveFromArgv(args) {
+  let images = [];
+
+  while (args[0] === '-i') {
+    // we don't use custom images, so just use these
+    images.push(`ghcr.io/prebuild/${args[1]}:2`);
+    args = args.slice(2);
+  }
+
+  return [images, args];
 }
