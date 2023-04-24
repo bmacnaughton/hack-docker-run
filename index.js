@@ -60,9 +60,12 @@ async function runBuild() {
     reject = _reject;
   });
 
+  const useStream = false;
+  const streamOrFile = useStream ? '-' : '/input/guest.js';
+
   const child = dockerRun(image, {
       entrypoint: 'node',
-      argv: ['-'].concat(['--stuff --for --func']),
+      argv: [streamOrFile].concat(['--stuff', '--for', '--func']),
       volumes: {
         [path.resolve('.')]: '/input',
       },
@@ -73,8 +76,11 @@ async function runBuild() {
 
   child.stderr.pipe(process.stderr, { end: false });
 
-  const stream = fs.createReadStream(path.resolve('./guest.js'), 'utf8');
-  stream.pipe(child.stdin);
+  if (useStream) {
+    const stream = fs.createReadStream(path.resolve('./guest.js'), 'utf8');
+    stream.pipe(child.stdin);
+  }
+
 
   child.stdout.pipe(process.stdout);
   child.stdout.on('finish', () => {resolve('finish')});
