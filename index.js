@@ -60,7 +60,7 @@ async function runBuild() {
     reject = _reject;
   });
 
-  const useStream = false;
+  const useStream = 'USE_STREAM' in process.env;
   const streamOrFile = useStream ? '-' : '/input/guest.js';
 
   const child = dockerRun(image, {
