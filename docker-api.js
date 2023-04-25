@@ -34,6 +34,10 @@ class MakeContainer {
       }
     }
 
+    if (options.cwd) {
+      this.createOpts.WorkingDir = options.cwd;
+    }
+
     if (options.ports) {
       Object.keys(opts.ports).forEach(host => {
         const container = opts.ports[host];
@@ -66,27 +70,30 @@ class MakeContainer {
 
   async create(options = {}) {
     const path = this.addVersion('/containers/create');
-    const response = await this.fetch.post(path, { json: this.createOpts });
-
-    return response;
+    return this.fetch.post(path, { json: this.createOpts });
   }
 
   async start(id) {
     const path = this.addVersion(`/containers/${id}/start`);
-    return await this.fetch.post(path);
+    return this.fetch.post(path);
   }
 
   async wait(id) {
     const path = this.addVersion(`/containers/${id}/wait`);
-    return await this.fetch.post(path);
+    return this.fetch.post(path);
   }
 
   // is this really necessary? or just look at logs?
   async attach(id) {
     let path = this.addVersion(`/containers/${id}/attach?stderr=1&stdout=1&stdin=1&stream=1`);
 
-    const response = await this.fetch.post(path, { streams: true });
-    return response;
+    return this.fetch.post(path, { streams: true });
+  }
+
+  async inspect(id) {
+    let path = this.addVersion(`/containers/${id}/json`);
+
+    return this.fetch.get(path);
   }
 
   addVersion(path) {
@@ -118,7 +125,10 @@ class DockerRun {
     }
     debug('container %s created from %s', id, this.image);
 
+    this.id = id;
+
     if (options.attach) {
+      throw new Error('attack option not implemented');
       debug('attaching to %s', this.image);
       const { req, res } = await this.dd.attach(id);
       if (res.statusCode >= 400) {
@@ -144,6 +154,14 @@ class DockerRun {
       throw DockerRun.makeError('create', { statusCode, body })
     }
 
+    debug('inspecting %s', this.image);
+    ({ statusCode, body } = await this.dd.inspect(id));
+    if (statusCode !== 200) {
+      throw DockerRun.makeError('inspect', { statusCode, body });
+    } else {
+      return body;
+    }
+
   }
 
   static makeError(msg, { statusCode, body }) {
@@ -159,4 +177,25 @@ module.exports = {
   MakeContainer,
   DockerRun,
 };
+
+if (require.main) {
+  process.env.DEBUG = 'docker-run';
+  const dr = new DockerRun(
+    'ghcr.io/prebuild/centos7-devtoolset7:2',
+    ['npx', '--no-install', 'prebuildify', '-t', '18.7.0', '-t', '16.9.1'],
+    {
+      volumes: { [process.cwd()]: '/input' },
+      cwd: '/input'
+    }
+  );
+
+  dr.run({})
+    .then(r => {
+      if (r.State.Status !== 'exited' || r.State.ExitCode !== 0) {
+        console.error('job failed', r.State);
+      } else {
+        console.log('done', r.State);
+      }
+    });
+}
 

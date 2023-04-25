@@ -19,7 +19,7 @@ class SocketConnection {
         for await (const buf of res) {
           bufs.push(buf);
         }
-        resolve(JSON.parse(Buffer.concat(bufs)));
+        resolve({ statusCode: res.statusCode, body: JSON.parse(Buffer.concat(bufs)) });
       });
 
       req.end();
@@ -90,18 +90,3 @@ class SocketConnection {
 }
 
 module.exports = SocketConnection;
-
-if (require.main) {
-  const x = new SocketConnection('/var/run/docker.sock');
-
-  x.get('/containers/json')
-    .then(console.log)
-    .catch(console.error);
-}
-
-
-
-//get({ path: '/v1.41/containers/json', socketPath: '/var/run/docker.sock' })
-//  .then(console.log)
-//  .catch(console.error);
-//
