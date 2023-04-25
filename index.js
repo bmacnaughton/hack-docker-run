@@ -6,27 +6,54 @@ const path = require('path');
 const fs = require('fs');
 
 const dockerPull = require('@vweevers/docker-pull');
-const dockerRun = require('docker-run');
+const { DockerRun } = require('./docker-api');
 const logger = require('log-update');
 
 const log = logger.create(process.stderr, { showCursor: true });
+const debug = require('debug')('prebuilder');
 
+//
+//
 
 
 
 async function main() {
-  console.log('got', process.argv);
-  // remove node and this script from argv
+  // separate the images and options
   const [images, argv] = getImagesAndRemoveFromArgv(process.argv.slice(2));
-  console.log('executing images', images);
-  console.log('args:', argv);
+  if (!images.length) {
+    throw new Error('must specify one or more images');
+  }
 
-  while (images.length) {
-    const image = images.shift();
-    console.log('executing image:', image)
+  let buildsToDo = builds(images, argv.slice());
+
+  for await (const r of buildsToDo) {
+    if (r.State.Status !== 'exited' || r.State.ExitCode !== 0) {
+      throw new Error(`build failed status: ${r.State.Status}, code: ${r.State.ExitCode}`);
+    }
+  }
+}
+
+async function* builds(images, args) {
+  for (const image of images) {
+    // add tags for cross compilations
+    if (/^(ghcr\.io\/)?prebuild\/(linux|android)-arm/.test(image)) {
+      args.push('--tag-armv');
+    } else if (/^(ghcr\.io\/)?prebuild\/(centos|alpine)/.test(image)) {
+      args.push('--tag-libc');
+    }
+
+    debug('fetching image %s', image);
     await getImage(image);
 
-    await runBuild(image, argv);
+    const command = ['npx', '--no-install', 'prebuildify'].concat(args);
+    const dopts = {
+      volumes: { [process.cwd()]: '/input' },
+      cwd: '/input'
+    };
+    debug('building %s with %o', image, command);
+    const dr = new DockerRun(image, command, dopts);
+
+    yield await dr.run({});
   }
 }
 
@@ -35,7 +62,8 @@ main()
     console.log('done');
   })
   .catch(e => {
-    console.log('ERROR:', e)
+    console.log('ERROR:', e);
+    process.exit(1);
   });
 
 async function getImage(image) {
@@ -66,43 +94,6 @@ async function getImage(image) {
     log(`> prebuildify-cross pull ${this.image}: ${count}, ${ratio}`)
   }
 }
-
-async function runBuild(image, argv) {
-  let resolve;
-  let reject;
-  const p = new Promise((_resolve, _reject) => {
-    resolve = _resolve;
-    reject = _reject;
-  });
-
-  const inputDir = path.resolve('.');
-  const builderDir = path.dirname(require.resolve('./guest.js'));
-
-  const dopts = {
-    //entrypoint: 'npx',
-    //argv: ['--no-install', 'prebuildify', ...argv],
-    entrypoint: 'node',
-    argv: ['/builder/guest.js'],
-    volumes: {
-      [inputDir]: '/input',
-      [builderDir]: '/builder',
-    },
-    cwd: '/input',
-  }
-  console.log('target:', dopts);
-
-  const child = dockerRun(image, dopts);
-
-  child.on('error', reject);
-  child.on('exit', () => {resolve('exit')});
-
-  child.stderr.pipe(process.stderr, { end: false });
-
-  child.stdout.pipe(process.stdout);
-  child.stdout.on('finish', () => {resolve('finish')});
-  child.stdout.on('error', reject);
-}
-
 
 function getImagesAndRemoveFromArgv(args) {
   let images = [];

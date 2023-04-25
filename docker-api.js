@@ -108,6 +108,9 @@ class DockerRun {
     this.dd = new MakeContainer(image, cmd, options);
   }
 
+  /**
+   * returns the result of inspect on the container after waiting on it.
+   */
   async run(options = {}) {
     debug('creating container with %s', this.image);
     let { statusCode, body } = await this.dd.create();
@@ -120,8 +123,6 @@ class DockerRun {
       console.log('create warnings', body.warnings);
     }
     debug('container %s created from %s', id, this.image);
-
-    this.id = id;
 
     if (options.attach) {
       throw new Error('attack option not implemented');
@@ -160,7 +161,6 @@ class DockerRun {
     } else {
       return body;
     }
-
   }
 
   static makeError(msg, { statusCode, body }) {
