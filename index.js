@@ -23,8 +23,9 @@ async function main() {
   if (!images.length) {
     throw new Error('must specify one or more images');
   }
+  debug('images: %o', images);
 
-  let buildsToDo = builds(images, argv.slice());
+  let buildsToDo = builds(images, argv);
 
   for await (const r of buildsToDo) {
     if (r.State.Status !== 'exited' || r.State.ExitCode !== 0) {
@@ -33,8 +34,9 @@ async function main() {
   }
 }
 
-async function* builds(images, args) {
+async function* builds(images, argv) {
   for (const image of images) {
+    const args = argv.slice();
     // add tags for cross compilations
     if (/^(ghcr\.io\/)?prebuild\/(linux|android)-arm/.test(image)) {
       args.push('--tag-armv');
