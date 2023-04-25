@@ -1,10 +1,6 @@
 'use strict';
 
-// candidate to be replaced
-const dockerRawStream = require('docker-raw-stream');
 const debug = require('debug')('docker-run');
-
-
 const SocketConnection = require('./socket-fetch');
 
 class MakeContainer {
@@ -129,6 +125,9 @@ class DockerRun {
 
     if (options.attach) {
       throw new Error('attack option not implemented');
+      // candidate to be replaced
+      const dockerRawStream = require('docker-raw-stream');
+
       debug('attaching to %s', this.image);
       const { req, res } = await this.dd.attach(id);
       if (res.statusCode >= 400) {
@@ -182,7 +181,7 @@ if (require.main) {
   process.env.DEBUG = 'docker-run';
   const dr = new DockerRun(
     'ghcr.io/prebuild/centos7-devtoolset7:2',
-    ['npx', '--no-install', 'prebuildify', '-t', '18.7.0', '-t', '16.9.1'],
+    ['npx', '--no-install', 'prebuildify', '-t', '18.7.0', '-t', '16.9.1', '--tag-libc'],
     {
       volumes: { [process.cwd()]: '/input' },
       cwd: '/input'
