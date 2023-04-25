@@ -177,7 +177,7 @@ module.exports = {
   DockerRun,
 };
 
-if (require.main) {
+if (require.main === module) {
   process.env.DEBUG = 'docker-run';
   const dr = new DockerRun(
     'ghcr.io/prebuild/centos7-devtoolset7:2',
